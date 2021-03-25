@@ -1,0 +1,103 @@
+{
+	"ext_dir": "/root/Keeper/ext/",
+	"global_arguments": {
+		"server_name": "127.0.0.1",
+		"watch_url": "http://127.0.0.1/index.jsp",
+		"restart_tomcat_command": "/usr/bin/systemctl restart tomcat.service",
+		"smtp_config": {
+			"host": "smtp.sendgrid.net",
+			"port": 587,
+			"username": "azure_a264d562be39fcdf55e473d573ac0cbc@azure.com",
+			"password": "space4money",
+			"reply_email": "no-reply@space4m.com"
+		}
+	},
+	"jobs": [
+		{
+			"name": "OpenFileCountThenLog",
+			"conditions": [
+				{
+					"type": "class",
+					"name": "com.space4m.keeper.ext.OpenFileCountCondition",
+					"arguments": {
+						"trigger": 0.8
+					}
+				}
+			],
+			"reactions": [
+				{
+					"type": "default",
+					"name": "Logger",
+					"arguments": {
+						"logs": [
+							{
+								"message": "Open file 警告!! 目前已用 $count, 即將達到上限 $limit",
+								"level": "warning",
+								"replace": [
+									{
+										"count": {
+											"bundle": "OpenFileCountCondition/tomcat_used_files"
+										}
+									},
+									{
+										"limit": {
+											"bundle": "OpenFileCountCondition/tomcat_limit_files"
+										}
+									}									
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "NoResponseThenRestart",
+			"conditions": [
+				{
+					"type": "default",
+					"name": "NoResponse"
+				}
+			],
+			"reactions": [
+				{
+					"type": "default",
+					"name": "ExecScript",
+					"arguments": {
+						"command": "$restart_tomcat_command"
+					}
+				},
+				{
+					"type": "default",
+					"name": "SendEmail",
+					"arguments": {
+						"smtp": "$smtp_config",
+						"to": [
+							"el.lai@space4m.com",
+							"prometheus.lie@gmail.com"
+						],
+						"subject": "WMS 主機異常通知",
+						"message": "【$server_name】 無法連線, 重新啟動 Tomcat, 結果$result",
+						"replace": [
+							{
+								"result": {
+									"bundle": "ExecScriptReaction/succeed",
+									"converters": [
+										{
+											"if": true,
+											"then": "成功"
+										},
+										{
+											"if": false,
+											"then": "失敗"
+										}
+									]
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	]
+}
